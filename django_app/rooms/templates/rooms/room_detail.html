@@ -5,9 +5,11 @@
 {% endblock %}
 
 {% block content %}
-    <a href="{% url 'rooms:rooms_list' %}">Выйти</a>
+    <a href="{% url 'rooms:room_leave' room.id %}">Выйти</a>
     {{ room.name }}
     <img src="{{ room.image.url }}" alt="image">
+
+    {{ room.members }}
 
     {% if request.user == room.owner %}
         <a href="{% url 'rooms:room_update' room.id %}">Изменить</a>

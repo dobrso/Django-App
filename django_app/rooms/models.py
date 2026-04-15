@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Tag(models.Model):
     name = models.CharField('Название', max_length=100)
@@ -24,3 +26,8 @@ class Room(models.Model):
 
     def __str__(self):
         return f'Комната {self.name}'
+
+@receiver(post_save, sender=Room)
+def add_owner_to_members(sender, instance, created, **kwargs):
+    if created:
+        instance.members.add(instance.owner)

@@ -1,4 +1,4 @@
-from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView, RedirectView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404
@@ -51,3 +51,24 @@ class RoomDeleteView(LoginRequiredMixin, DeleteView):
         room = get_object_or_404(Room, id=self.kwargs['room_id'])
         if room.owner == self.request.user:
             return room
+
+class RoomJoinView(LoginRequiredMixin, RedirectView):
+    pattern_name = 'rooms:room_detail'
+
+    def get_redirect_url(self, *args, **kwargs):
+        room = get_object_or_404(Room, id=self.kwargs['room_id'])
+        room.members.add(self.request.user)
+
+        return reverse_lazy('rooms:room_detail', kwargs={'room_id': self.kwargs['room_id']})
+
+class RoomLeaveView(LoginRequiredMixin, RedirectView):
+    pattern_name = 'rooms:rooms_list'
+
+    def get_redirect_url(self, *args, **kwargs):
+        room = get_object_or_404(Room, id=self.kwargs['room_id'])
+        room.members.remove(self.request.user)
+
+        if room.members.count() == 0:
+            room.delete()
+
+        return reverse_lazy('rooms:rooms_list')
