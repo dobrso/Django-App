@@ -2,7 +2,6 @@ from django.views.generic import ListView, CreateView, DetailView, UpdateView, D
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404
-from django.core.cache import cache
 
 from .forms import RoomForm
 from .models import Room
@@ -18,7 +17,7 @@ class RoomCreateView(LoginRequiredMixin, CreateView):
     template_name = 'rooms/room_create.html'
 
     def get_initial(self):
-        draft = cache.get(f'room_draft_{self.request.user.id}')
+        draft = self.request.session.get(f'room_draft_{self.request.user.id}')
         return draft or {}
 
     def form_invalid(self, form):
@@ -28,15 +27,17 @@ class RoomCreateView(LoginRequiredMixin, CreateView):
             'tags': self.request.POST.getlist('tags'),
         }
 
-        cache.set(draft_key, draft_data, 3600)
+        self.request.session[draft_key] = draft_data
+        self.request.session.set_expiry(3600)
+
         return super().form_invalid(form)
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
 
         draft_key = f'room_draft_{self.request.user.id}'
-        if draft_key in cache:
-            cache.delete(draft_key)
+        if draft_key in self.request.session:
+            del self.request.session[draft_key]
 
         return super().form_valid(form)
 
@@ -75,8 +76,6 @@ class RoomDeleteView(LoginRequiredMixin, DeleteView):
             return room
 
 class RoomJoinView(LoginRequiredMixin, RedirectView):
-    pattern_name = 'rooms:room_detail'
-
     def get_redirect_url(self, *args, **kwargs):
         room = get_object_or_404(Room, id=self.kwargs['room_id'])
         room.members.add(self.request.user)
@@ -84,8 +83,6 @@ class RoomJoinView(LoginRequiredMixin, RedirectView):
         return reverse_lazy('rooms:room_detail', kwargs={'room_id': self.kwargs['room_id']})
 
 class RoomLeaveView(LoginRequiredMixin, RedirectView):
-    pattern_name = 'rooms:rooms_list'
-
     def get_redirect_url(self, *args, **kwargs):
         room = get_object_or_404(Room, id=self.kwargs['room_id'])
         room.members.remove(self.request.user)
